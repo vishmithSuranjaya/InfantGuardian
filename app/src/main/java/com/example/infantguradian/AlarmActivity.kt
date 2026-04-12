@@ -50,6 +50,17 @@ class AlarmActivity : ComponentActivity() {
         val body = intent.getStringExtra("fcm_body") ?: "No Body"
         val dataJson = intent.getStringExtra("fcm_data_json") ?: "{}"
 
+        // Parse confidence and reason from dataJson
+        var confidence: String? = null
+        var reason: String? = null
+        try {
+            val json = JSONObject(dataJson)
+            confidence = json.optString("confidence", null)
+            reason = json.optString("reason", null)
+        } catch (e: Exception) {
+            Log.e("AlarmActivity", "Failed to parse confidence/reason from dataJson", e)
+        }
+
         // Initialize and start alarm sound
         startAlarmSound()
 
@@ -116,70 +127,27 @@ class AlarmActivity : ComponentActivity() {
 
                             Spacer(modifier = Modifier.height(24.dp))
 
+                            // Enhanced user-friendly card for title and message only
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(8.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                shape = MaterialTheme.shapes.large,
+                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = "Title:",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF8B0000)
-                                    )
-                                    Text(
-                                        text = title,
-                                        fontSize = 20.sp,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                            }
-
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = "Message:",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF8B0000)
-                                    )
+                                Column(
+                                    modifier = Modifier
+                                        .padding(horizontal = 28.dp, vertical = 32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
                                     Text(
                                         text = body,
-                                        fontSize = 18.sp,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                            }
-
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = "Data:",
-                                        fontSize = 16.sp,
+                                        fontSize = 32.sp, // Further increased font size
+                                        color = Color(0xFFB71C1C), // Red color for message
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF8B0000)
-                                    )
-                                    val pretty = try {
-                                        JSONObject(dataJson).toString(2)
-                                    } catch (_: Exception) {
-                                        dataJson
-                                    }
-                                    Text(
-                                        text = pretty,
-                                        fontSize = 14.sp,
-                                        modifier = Modifier.padding(top = 4.dp)
+                                        lineHeight = 40.sp,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
                                     )
                                 }
                             }

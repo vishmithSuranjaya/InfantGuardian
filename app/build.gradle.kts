@@ -58,8 +58,12 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
+
     // Add Firebase dependencies
     implementation(platform("com.google.firebase:firebase-bom:32.2.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
+
+    // Add lifecycle-viewmodel-compose for Compose viewModel()
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 
 }

@@ -49,6 +49,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.Locale
 
+
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+
 class MainActivity : ComponentActivity() {
 
     private val viewModel: HomeViewModel by viewModels()
@@ -66,31 +70,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Subscribe this device to the topic so it receives topic messages
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val token = task.result
-                Log.d("FCM", "FCM token retrieved: $token")
-                FirebaseMessaging.getInstance().subscribeToTopic("infantguardian")
-                    .addOnCompleteListener { subTask ->
-                        if (subTask.isSuccessful) {
-                            Log.d("FCM", "Subscribed to topic: infantguardian")
-                        } else {
-                            Log.w("FCM", "Failed to subscribe to topic", subTask.exception)
-                        }
-                    }
-            } else {
-                Log.w("FCM", "Fetching FCM token failed", task.exception)
-            }
-        }
-
-        // Observe the global FCM data store and update the ViewModel's temperature whenever new data arrives
+        // Fetch temperature from Azure IoT Central REST API on launch
+        val azureApiUrl = "https://infantguardian.azureiotcentral.com/api/devices/kqofyk435t/telemetry/temperature?api-version=2022-07-31"
+        val authToken = "SharedAccessSignature sr=929308f6-a3c9-4564-a4c9-134e79ca0a56&sig=o2CAN1Q8QiypHtQ8d%2BnliFNK%2BqQECG1Q8zSna%2FFaCVk%3D&skn=vishmith&se=1805023238855" // TODO: Replace with your actual token
         lifecycleScope.launch {
-            FcmDataStore.fcmData.collect { monitoringData ->
-                // monitoringData is non-null (MutableStateFlow initialized with MonitoringData()), but sensors.temperature may be null
-                val temp = monitoringData.sensors.temperature
-                viewModel.updateTemperature(temp)
-            }
+            viewModel.fetchTemperatureFromAzure(azureApiUrl, authToken)
         }
 
         setContent {
@@ -103,7 +87,10 @@ class MainActivity : ComponentActivity() {
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.parse("package:$packageName")
         )
-        startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE)
+        // Overlay permission intent for Android 6.0+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            startActivity(intent)
+        }
     }
 
     companion object {
@@ -178,58 +165,90 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 modifier = Modifier.padding(top = 16.dp)
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp)) // Add vertical space between temperature and buttons
 
-            // Controls row
             Row(verticalAlignment = Alignment.CenterVertically) {
-                FanControl()
+                FanControl(viewModel)
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                CotmobileControl()
+                CotmobileControl(viewModel)
             }
         }
     }
 }
 
 @Composable
-fun FanControl() {
-    // local state for fan on/off
+fun FanControl(viewModel: HomeViewModel) {
+    var loading by remember { mutableStateOf(false) }
     var isOn by remember { mutableStateOf(false) }
+    val apiUrl = "https://infantguardian.azureiotcentral.com/api/devices/kqofyk435t/commands/fanControl?api-version=2022-07-31" // TODO: Replace with your backend host
+    val authToken = "SharedAccessSignature sr=929308f6-a3c9-4564-a4c9-134e79ca0a56&sig=o2CAN1Q8QiypHtQ8d%2BnliFNK%2BqQECG1Q8zSna%2FFaCVk%3D&skn=vishmith&se=1805023238855" // TODO: Use the same token as before if needed
+    val coroutineScope = rememberCoroutineScope()
+    // val fanResult by viewModel.fanResult.collectAsState()
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Button(
-            onClick = { isOn = !isOn },
+            onClick = {
+                loading = true
+                coroutineScope.launch {
+                    viewModel.turnFanOn(apiUrl, authToken)
+                    isOn = !isOn
+                    loading = false
+                }
+            },
+            enabled = !loading,
             colors = ButtonDefaults.buttonColors(containerColor = if (isOn) Color(0xFF4CAF50) else Color(0xFFE0E0E0))
         ) {
-            Text(text = if (isOn) "Turn Fan Off" else "Turn Fan On",
-                color = if (isOn) Color.White else Color.Black,
-                fontSize = 20.sp) // increased font size
+            Text(
+                text = when {
+                    loading && !isOn -> "Turning On..."
+                    loading && isOn -> "Turning Off..."
+                    isOn -> "Turn Fan Off"
+                    else -> "Turn Fan On"
+                },
+                color = if (isOn || loading) Color.White else Color.Black,
+                fontSize = 20.sp
+            )
         }
-
         Spacer(modifier = Modifier.height(8.dp))
-
     }
 }
 
 @Composable
-fun CotmobileControl() {
-    // local state for cotmobile on/off
+fun CotmobileControl(viewModel: HomeViewModel) {
+    var loading by remember { mutableStateOf(false) }
     var isOn by remember { mutableStateOf(false) }
+    val apiUrl = "https://infantguardian.azureiotcentral.com/api/devices/kqofyk435t/commands/CotMobile?api-version=2022-07-31" // TODO: Replace with your backend host
+    val authToken = "SharedAccessSignature sr=929308f6-a3c9-4564-a4c9-134e79ca0a56&sig=o2CAN1Q8QiypHtQ8d%2BnliFNK%2BqQECG1Q8zSna%2FFaCVk%3D&skn=vishmith&se=1805023238855" // TODO: Use the same token as before if needed
+    val coroutineScope = rememberCoroutineScope()
+    // val cotResult by viewModel.cotMobileResult.collectAsState()
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Button(
-            onClick = { isOn = !isOn },
+            onClick = {
+                loading = true
+                coroutineScope.launch {
+                    viewModel.turnCotMobileOn(apiUrl, authToken)
+                    isOn = !isOn
+                    loading = false
+                }
+            },
+            enabled = !loading,
             colors = ButtonDefaults.buttonColors(containerColor = if (isOn) Color(0xFF4CAF50) else Color(0xFFE0E0E0))
         ) {
-            Text(text = if (isOn) "Turn Cotmobile Off" else "Turn Cotmobile On",
-                color = if (isOn) Color.White else Color.Black,
-                fontSize = 20.sp) // increased font size
+            Text(
+                text = when {
+                    loading && !isOn -> "Turning On..."
+                    loading && isOn -> "Turning Off..."
+                    isOn -> "Turn Cotmobile Off"
+                    else -> "Turn Cotmobile On"
+                },
+                color = if (isOn || loading) Color.White else Color.Black,
+                fontSize = 20.sp
+            )
         }
-
         Spacer(modifier = Modifier.height(8.dp))
-
-
     }
 }
 
